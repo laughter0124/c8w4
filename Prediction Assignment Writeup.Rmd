@@ -1,0 +1,79 @@
+---
+title: "Prediction Assignment Writeup"
+author: "Qian Xu"
+date: "11/14/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(caret)
+library(rpart)
+library(randomForest)
+library(gbm)
+```
+
+# Overview
+
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants.
+
+# Data Cleaning
+
+We first read the data in and will then do some cleaning to set the data into three groups, training, validation and testing.
+
+```{r}
+training<-read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", na.strings=c("NA", "#DIV/0!", " "))
+testing<-read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", na.strings=c("NA", "#DIV/0!", " "))
+```
+
+```{r}
+ColNAIndex<-colMeans(is.na(training))<.95
+train<-training[, ColNAIndex]
+train<-train[-c(1:7)]
+test<-testing[, ColNAIndex]
+test<-test[-c(1:7)]
+
+inTrain <- createDataPartition(train$classe, p=0.7, list=FALSE)
+training<-train[inTrain,]
+validating<-train[-inTrain,]
+```
+
+# Model Fittings
+
+We first try to fit the data into a simple tree model.
+```{r}
+treemodel<-train(classe~., data=training, method="rpart")
+treepred<-predict(treemodel, validating)
+confusionMatrix(treepred, validating$classe)
+```
+From the confusion matrix and statistics, we can see the accuracy is only around 0.5, which indicates this is not a good model for the data set.
+
+We then move on to a more complicated but common model, the random forest.
+```{r}
+rfmodel<-train(classe~., data=training, method="rf", ntree=100)
+rfpred<-predict(rfmodel, validating)
+confusionMatrix(rfpred, validating$classe)
+```
+This time, the confusion matrix looks good and the accuracy is over 0.99.  This model is a good selection to fit the data set.
+
+We also tried another model, the gradient boosting model.
+```{r}
+# gbmodel<-train(classe~., data=training, method="gbm", trControl=trainControl(method="cv"), number=5)
+gbmodel<-train(classe~., data=training, method="gbm", verbose = FALSE)
+# gbmodel$finalModel
+gbpred<-predict(gbmodel, validating)
+confusionMatrix(gbpred, validating$classe)
+```
+The confusion matrix and statistics show that this is also a good model to fit the data set.
+
+# Conclusion
+
+By comparing the overall statistics, we select the random forest as the best model to fit the data set because it has the higher accuracy.
+
+# Prediction
+
+We use the random forest to predict on test set and get the following results.
+```{r}
+pred<-predict(rfmodel, test)
+pred
+```
